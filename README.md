@@ -1,2 +1,3 @@
-# drydock
-Library of Docker application templates following a common pattern
+# Drydock
+
+Library of Docker application templates following a common pattern.
