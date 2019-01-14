@@ -38,5 +38,5 @@ echo "PHP version OK"
 
 
 echo "Cleaning up"
-docker-compose rm -f
+docker-compose rm -sf
 rm -rf docroot
