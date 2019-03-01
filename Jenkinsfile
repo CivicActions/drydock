@@ -26,7 +26,7 @@ pipeline {
         stage('Run builds') {
             steps {
                 script {
-                    sh 'habitus -noprune-rmi'
+                    sh 'habitus -keep-all'
                 }
             }
         }
