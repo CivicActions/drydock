@@ -30,49 +30,45 @@ pipeline {
                 }
             }
         }
-        stage('Functional tests') {
-            parallel {
-                stage('Test Acquia PHP 7.1 image') {
-                    steps {
-                        script {
-                            dir('drupal/acquia') { 
-                                withEnv(['VERSION=7.1']) {
-                                    sh '../test/test.sh'
-                                }
-                            }
+        stage('Test Acquia PHP 7.1 image') {
+            steps {
+                script {
+                    dir('drupal/acquia') { 
+                        withEnv(['VERSION=7.1']) {
+                            sh '../test/test.sh'
                         }
                     }
                 }
-                stage('Test Acquia PHP 7.2 image') {
-                    steps {
-                        script {
-                            dir('drupal/acquia') { 
-                                withEnv(['VERSION=7.2']) {
-                                    sh '../test/test.sh'
-                                }
-                            }
+            }
+        }
+        stage('Test Acquia PHP 7.2 image') {
+            steps {
+                script {
+                    dir('drupal/acquia') { 
+                        withEnv(['VERSION=7.2']) {
+                            sh '../test/test.sh'
                         }
                     }
                 }
-                stage('Test Pantheon PHP 7.1 image') {
-                    steps {
-                        script {
-                            dir('drupal/pantheon') { 
-                                withEnv(['VERSION=7.1']) {
-                                    sh '../test/test.sh'
-                                }
-                            }
+            }
+        }
+        stage('Test Pantheon PHP 7.1 image') {
+            steps {
+                script {
+                    dir('drupal/pantheon') { 
+                        withEnv(['VERSION=7.1']) {
+                            sh '../test/test.sh'
                         }
                     }
                 }
-                stage('Test Pantheon PHP 7.2 image') {
-                    steps {
-                        script {
-                            dir('drupal/pantheon') { 
-                                withEnv(['VERSION=7.2']) {
-                                    sh '../test/test.sh'
-                                }
-                            }
+            }
+        }
+        stage('Test Pantheon PHP 7.2 image') {
+            steps {
+                script {
+                    dir('drupal/pantheon') { 
+                        withEnv(['VERSION=7.2']) {
+                            sh '../test/test.sh'
                         }
                     }
                 }

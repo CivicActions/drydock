@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+function cleanup {
+    echo "Cleaning up"
+    docker-compose down --rmi local -v
+    rm -rf docroot
+}
+trap cleanup EXIT
+
 HOST=$(basename "${PWD}")
 export COMPOSE_FILE=docker-compose.yml
 export COMPOSE_PROJECT_NAME=drupal_${HOST}_${VERSION}_${BRANCH_NAME}
@@ -34,8 +41,3 @@ if [ "${ACTUAL}" != "${VERSION}" ]; then
     exit 2
 fi
 echo "PHP version OK"
-
-
-echo "Cleaning up"
-docker-compose down --rmi local -v
-rm -rf docroot
