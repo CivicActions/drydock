@@ -66,8 +66,8 @@ if [ "$1" == "auto" ]; then
     # Count any non-false OVAL results as fails:
     OVAL=$(xpath  -e 'count(/oval_results/results/system/definitions/definition[@result!="false"])' /workspace/oval-results.xml 2> /dev/null)
     echo "OVAL fails: $OVAL"
-    # Count any non-pass XCCDF results as fails:
-    XCCDF=$(xpath -q -e 'count(/arf:asset-report-collection/arf:reports/arf:report[@id="xccdf1"]/arf:content/TestResult/rule-result[result!="pass"])' /workspace/ssg-results-arf.xml 2> /dev/null)
+    # Count any selected, applicable, non-pass XCCDF results as fails:
+    XCCDF=$(xpath -q -e 'count(/arf:asset-report-collection/arf:reports/arf:report[@id="xccdf1"]/arf:content/TestResult/rule-result[result!="pass" and result!="notselected" and result != "notapplicable"])' /workspace/ssg-results-arf.xml 2> /dev/null)
     echo "XCCDF fails: $XCCDF"
     TOTAL=$((OVAL+XCCDF))
     echo "Total fails: $TOTAL"
