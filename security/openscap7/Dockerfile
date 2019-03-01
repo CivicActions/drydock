@@ -2,9 +2,9 @@ ARG source=registry.access.redhat.com/rhel7
 # hadolint ignore=DL3006
 FROM $source
 
-RUN yum install -y openscap-utils scap-security-guide perl-XML-XPath && \
-  yum clean all && \
-  rm -rf /var/cache/yum
+RUN yum install -y openscap-utils scap-security-guide perl-XML-XPath \
+  && yum clean all \
+  && rm -rf /var/cache/yum
 
 # We use bash pipes to simplify checking download hashes.
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
