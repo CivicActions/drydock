@@ -49,3 +49,11 @@ build:
         version: 7.2
       depends_on:
         - drupal-pantheon-php-7.1
+    ## Platform: Security
+    # Variant: OpenSCAP (CentOS)
+    security-openscap-centos:
+      name: _env(PREFIX)security-openscap7-centos7:_env(TAG)
+      context: security/openscap7
+      dockerfile: Dockerfile
+      args:
+        source: centos:7
