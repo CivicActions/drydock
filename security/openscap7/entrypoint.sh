@@ -13,8 +13,7 @@ if [[ "$#" -lt 3 || "${1:-}" != "auto" && "${1:-}" != "manual" ]]; then
     echo "  Reports will be saved to the /workspace directory, mount a directory to that location"
     echo "  if you wish to retain them. If /workspace/tailoring.xml exists then it will be used to"
     echo "  tailor the XCCDF eval."
-    echo "  Both results will be evaluated and exit code will be 0 (no fails) otherwise"
-    echo "  the number of fails plus 1000 (to avoid masking command failure exit codes)."
+    echo "  Both results will be evaluated and exit code will be 10 if there are fails and 0 if none."
     echo
     echo "Manual: Provide a 'manual' argument, an image name to evaluate, then oscap parameters:"
     echo "  e.g. 'manual centos:7 oval eval /usr/share/xml/scap/ssg/content/ssg-rhel7-oval.xml'"
@@ -75,7 +74,7 @@ if [ "$1" == "auto" ]; then
     if [ $TOTAL -eq 0 ]; then
         exit 0
     fi
-    exit $((TOTAL+1000))
+    exit 10
 else
     echo "Running manual evaluations"
     shift 2
