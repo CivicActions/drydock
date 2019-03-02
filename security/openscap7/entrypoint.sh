@@ -8,12 +8,12 @@ if [[ "$#" -lt 3 || "${1:-}" != "auto" && "${1:-}" != "manual" ]]; then
     echo "Automatic: Provide exactly 3 arguments: auto [imagename:tag] [profileId]."
     echo "  e.g. 'auto centos:7 xccdf_org.ssgproject.content_profile_stig-rhel7-disa'"
     echo "  The second argument is the image name/tag to evaluate. The final argument is"
-    echo "  the XCCDF profile Id to use (run 'manual info' to see the available profiles)."
-    echo "  This will cause both XCCDF profile and OPAL CVE evaluations to be completed."
+    echo "  the SSG profile Id to use (run 'manual info' against the SSG xml to list profiles)."
+    echo "  This will cause both XCCDF SSG profile and CVE evaluations to be completed."
     echo "  Reports will be saved to the /workspace directory, mount a directory to that location"
-    echo "  if you wish to retain them. If /workspace/tailoring.xml exists then it will be used to"
-    echo "  tailor the XCCDF eval."
-    echo "  Both results will be evaluated and exit code will be 10 if there are fails and 0 if none."
+    echo "  if you wish to retain them. If /workspace/tailoring-ssg.xml (or tailoring-cve.xml)"
+    echo "  exists then it will be used to tailor that evaluation."
+    echo "  Exit code will be 1 if there are fails in either evaluation and 0 if none."
     echo
     echo "Manual: Provide a 'manual' argument, an image name to evaluate, then oscap parameters:"
     echo "  e.g. 'manual centos:7 oval eval /usr/share/xml/scap/ssg/content/ssg-rhel7-oval.xml'"
@@ -30,6 +30,56 @@ if [ -r "/var/run/docker.sock" ]; then
     echo "Mount /var/run/docker.sock from the host to this container, (you should not need --privileged=true)."
 fi
 
+# Will run an evaluation and calculate the number of fails.
+# First argument should be the type of scan to run (ssg or cve)
+# followed by arguments to pass to the oscap command.
+# The return code will be: 0 (pass), 1 (results included fails),
+# 2 (scan fail) or 3 (count fail).
+autoeval() {
+    local type="${1}"
+    shift
+    local args=("$@")
+
+    local xml="/workspace/${type}-results-arf.xml"
+    local report="--results-arf ${xml} --report /workspace/${type}-report.html"
+    local tailoring=
+    if [ -r "/workspace/${type}-tailoring.xml" ]; then
+        local tailoring="--tailoring-file /workspace/${type}-tailoring.xml"
+    fi
+    # Count any selected, applicable, checked, non-pass XCCDF results as fails:
+    local fails='count(/arf:asset-report-collection/arf:reports/arf:report[@id="xccdf1"]/arf:content/cdf12:TestResult/cdf12:rule-result[not(cdf12:result="notselected") and not(cdf12:result="notapplicable") and not(cdf12:result="notchecked") and not(cdf12:result="pass")])'
+    local ns=cdf12="http://checklists.nist.gov/xccdf/1.2"
+    local count=1
+
+    # We enable command echo for oscap and count commands for transparency/reproducibility
+    # and disable exit on error, since we check each exit code explicitly.
+    set -x +e
+    # shellcheck disable=SC2086
+    oscap-chroot /mnt xccdf eval ${report} ${tailoring} "${args[@]}"
+    local scan_exit=$?
+    # shellcheck disable=SC2086
+    count=$(xmlstarlet sel -N ${ns} -t -v "${fails}" ${xml})
+    local count_exit=$?
+    set +x -e
+
+    if [ $scan_exit -eq 1 ]; then
+        # Note that exit code 2 just means scan fails, which we catch below.
+        echo "Scan failed for ${type}"
+        return 2
+    fi
+    if [ $count_exit -ne 0 ]; then
+        echo "Count failed for ${type}"
+        return 3
+    fi
+    if [ $scan_exit -eq 2 ] || [ "$count" != "0" ]; then
+        echo "Fails for ${type} evaluation: ${count}"
+        return 1
+    fi
+    echo "All evaluations for ${type} passed"
+    return 0
+}
+
+cd /tmp
 echo "Unpacking the image"
 docker-companion unpack "$2" /mnt
 
@@ -38,43 +88,34 @@ if [ "$1" == "auto" ]; then
     if [ ! -d "/workspace" ]; then
         mkdir /workspace
     fi
-    OPAL_REPORT='--results /workspace/oval-results.xml --report /workspace/oval-report.html'
-    XCCDF_REPORT='--results-arf /workspace/ssg-results-arf.xml --report /workspace/ssg-report.html'
-    XCCDF_TAILORING=
-    if [ -r "/workspace/tailoring.xml" ]; then
-        XCCDF_TAILORING='--tailoring-file /workspace/tailoring.xml'
-    fi
+
+    echo "Running SSG evaluation"
     OS=rhel7
     if [ -f "/mnt/etc/centos-release" ]; then
         OS=centos7
     fi
-    echo "Running XCCDF evaluation"
-    # We enable command echo for all oscap commands for transparency/reproducibility
-    set -x
-    # shellcheck disable=SC2086
-    oscap-chroot /mnt xccdf eval --fetch-remote-resources --profile "$3" ${XCCDF_REPORT} ${XCCDF_TAILORING} "/usr/share/xml/scap/ssg/content/ssg-${OS}-ds.xml" || true
-    set +x
-    echo "Fetching latest OVAL content"
-    curl -Ls https://www.redhat.com/security/data/oval/com.redhat.rhsa-RHEL7.xml.bz2 | bzip2 -d -c > /tmp/oval.xml
-    echo "Running OVAL evaluation"
-    # We enable command echo for all oscap commands for transparency/reproducibility
-    set -x
-    # shellcheck disable=SC2086
-    oscap-chroot /mnt oval eval ${OPAL_REPORT} /tmp/oval.xml || true
-    set +x
-    echo "Checking results"
-    # Count any non-false OVAL results as fails:
-    OVAL=$(xpath  -e 'count(/oval_results/results/system/definitions/definition[@result!="false"])' /workspace/oval-results.xml 2> /dev/null)
-    echo "OVAL fails: $OVAL"
-    # Count any selected, applicable, non-pass XCCDF results as fails:
-    XCCDF=$(xpath -q -e 'count(/arf:asset-report-collection/arf:reports/arf:report[@id="xccdf1"]/arf:content/TestResult/rule-result[result!="pass" and result!="notselected" and result != "notapplicable"])' /workspace/ssg-results-arf.xml 2> /dev/null)
-    echo "XCCDF fails: $XCCDF"
-    TOTAL=$((OVAL+XCCDF))
-    echo "Total fails: $TOTAL"
-    if [ $TOTAL -eq 0 ]; then
+    ARGS=('ssg' '--fetch-remote-resources' '--profile' "$3" "/usr/share/xml/scap/ssg/content/ssg-${OS}-ds.xml")
+    SSG=1
+    if autoeval "${ARGS[@]}"; then
+        SSG=0
+    fi
+
+    echo "Fetching latest CVE content"
+    curl -Ls https://www.redhat.com/security/data/oval/com.redhat.rhsa-RHEL7.xml.bz2 | bzip2 -d -c > com.redhat.rhsa-all.xml
+    curl -Ls -o com.redhat.rhsa-all.xccdf.xml https://www.redhat.com/security/data/metrics/com.redhat.rhsa-all.xccdf.xml
+    echo "Running CVE evaluation"
+    ARGS=('cve' 'com.redhat.rhsa-all.xccdf.xml')
+    CVE=1
+    if autoeval "${ARGS[@]}"; then
+        CVE=0
+    fi
+
+    if [ $SSG -eq 0 ] && [ $CVE -eq 0 ]; then
+        echo "Both SSG and CVE evaluations passed"
         exit 0
     fi
-    exit 10
+    echo "One or more evaluations failed"
+    exit 1
 else
     echo "Running manual evaluations"
     shift 2
