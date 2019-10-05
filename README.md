@@ -50,11 +50,11 @@ Library of Docker application templates following a common pattern.
   * The default value of this environment variable should be `http://web`.
   * Web testing tools that check pages (e.g. security or accessibility scanners) can optionally use a newline delimited list of paths to test (e.g. `section/subsection/page`). If used, this file must be mounted at `/src/pages.txt`. If not used the scanner may default to just scanning the front page, or a spidering mode.
 * Source code analyzers must scan code copied or mounted at `/target`
-* Any results (test report, screenshots, coverage etc) should be output to the /results directory
+* Any results (test report, screenshots, coverage etc) should be output to the `/results` directory
   * Unit tests and language linters are run in the same image as the application code they are testing, so don't need to support /target, but should support output to /results
 * The tool must either use an official vendor provided Docker image base, or be based on a hardened image
 * The `/src` and `/target` directories must be mounted read only
 * An example `docker-compose.<toolname>.yml` should be provided that demonstrates usage
 * Base image testing:
   * The images should include an initial configuration copied to the `/src` directory (and a stub file in `/target` if required) that completes a basic smoke test
-  * A sample web page will be provided at http://web for base image testing
+  * A sample web page will be provided at `http://web` for base image testing
